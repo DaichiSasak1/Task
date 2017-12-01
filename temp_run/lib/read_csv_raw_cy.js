@@ -1,22 +1,48 @@
 // variable "network", "attribute"
+var prop_vals={
+    "dnfcolor":"royalblue",  //Default Node Face color
+    "snfcolor":"red",   //Selected Node Face color
+    "dnsize":1000,        //Default Node size
+    "dewidth":3,        //Default Edge width
+    "sewidth":50,       //Selected Edge width
+};
+var nstyle = {// "shape": "data(shape)",
+                "width": "data(size)",
+                "height": "data(size)",
+                "label": "data(label)",
+                "background-color":"data(bg)",
+            };
+var estyle = {  "width": "data(width)",
+//                 "curve-style": "haystack",
+                "line-color": "midnightblue",
+                "line-style": "solid", //solid dotted dashed
+//                 "target-arrow-color":"red",
+                "target-arrow-shape":"triangle", //tee triangle triangle-tee triangle-cross triangle-backcurve square circle diamond none
+//                "target-arrow-fill":"filled", //filled hollow
+                "target-arrow-color":"black",
+                "source-arrow-shape":"diamond",
+                "arrow-scale": 10
+            };
+var JSONform = [  {  selector: "node",
+                     style: nstyle   },
+                  {  selector: "edge",
+                     style: estyle   }   ];
+
+var FUNCTIONform = cytoscape.stylesheet()
+                    .selector("node")
+                        .css(nstyle)
+                    .selector("edge")
+                        .css(estyle)
+
 var cy = cytoscape({
         container: document.getElementById('cy'),
-        style:[{
-            selector: "node",
-            style: {
-//                 "shape": "circle",
-//                 "width": "auto",
-//                 "height": "auto",
-                "label": "data(label)",
-            }
-            
-        }]
+        style: FUNCTIONform
     });
-var Hnet = get_TableHash(network);
-var Hattr = get_TableHash(attribute);
+var Hnet = get_TableHash(network_0);
+var Hattr = get_TableHash(attribute_0);
 var nframe, eframe;
 // debugger;
-// reHashes = resize_Net(Hnet, Hattr, 100);
+// reHashes = resize_Net(Hnet, Hattr, 1);
 // Hnet = reHashes[0];
 // Hattr = reHashes[1];
 
@@ -30,8 +56,10 @@ get_attr(Hattr);
 //     positions:  //"node id =>position pbj" //mapData(position)
 //     
 // }).run();
-cy.fit();
 
+cy.fit();
+cy.minZoom(cy.zoom());
+cy.maxZoom(1e+1);
 eventFunc();
 
 //****************************************************************************
@@ -77,7 +105,8 @@ eventFunc();
         // 行と列の二次元配列にする
         var itemArr = [];
         for (var i = 0; i < lineArr.length; i++) {
-            itemArr[i] = lineArr[i].split('@');
+//             itemArr[i] = lineArr[i].split('@');
+            itemArr[i] = lineArr[i].split('^');
         }
         // headerをキーとした連想配列にする
         var result1 = {};
@@ -126,7 +155,7 @@ eventFunc();
             for (var i=0; i<Htable[net_key[0]].length; i++) {
                 idt = Htable[net_key[0]][i];
                 if ((idt) && !(idlist.has(idt))){
-                    cy.add({    data: {id: idt , label: idt}    });
+                    cy.add({    data: {id: idt , label: idt , bg:"blue", size:prop_vals["dnsize"] } });
                     idlist.add(idt);
                     
                 }};
@@ -134,7 +163,7 @@ eventFunc();
             for (var i=0; i<Htable[net_key[1]].length; i++) {
                 idt = Htable[net_key[1]][i];
                 if ((idt) && !(idlist.has(idt))){
-                    cy.add({    data: {id: idt , label: idt}    });
+                    cy.add({    data: {id: idt , label: idt , bg:"blue", size:prop_vals["dnsize"] } });
                     idlist.add(idt);
                 }}
             // add "interaction" edges to "cy"
@@ -143,12 +172,13 @@ eventFunc();
                 srct = Htable[net_key[0]][i];
                 trgt = Htable[net_key[1]][i]
                 
-                if (idt && srct && trgt){
+                if (idt && srct && trgt && (srct != trgt)){
                     cy.add({    
                         data: {
                             id: idt + "_" + i,
                            source: srct,
-                           target: trgt
+                           target: trgt,
+                           width: prop_vals["dewidth"]
                         } 
                     });
                 }}
@@ -159,7 +189,7 @@ eventFunc();
         attr_key =["source", "authors", "date", "x", "y", "url", "size", "section", "id", "hitch"];
         //             0         1         2     3    4     5       6        7       8        9
             
-        var x_scale = 3;
+        var x_scale = 1;
         var y_scale = 1;
         var c_scale = 1;
         
@@ -180,8 +210,9 @@ eventFunc();
                             _section: Htable[attr_key[7]][i],
                             _arXivid: Htable[attr_key[8]][i]
                         } );
-                cy.$id(idt).height( ct );
-                cy.$id(idt).width(  ct );
+                cy.$id(idt).data().size = ct;
+//                 cy.$id(idt).css("width", ct );
+//                 cy.$id(idt).css("height",  ct );
                         // selected: false,
                         // selectable: true,
                         // locked: false,
@@ -192,9 +223,10 @@ eventFunc();
                 };
                 
                 }
+        cy.autolock(true);
             }
-//             cy.autolock(true);
             
+//----------------------------------------------------------------------------------------------------
     function get_net2(Hnet, Hattr){
         net_key =["source","target","interaction"];
         attr_key =["source", "authors", "date", "x", "y", "url", "size", "section", "id", "hitch"];
@@ -252,11 +284,14 @@ eventFunc();
 //--------------------------------------------------------------
     function eventFunc(){
         cy.on("click","node",function(e){openFn(e)});
-        cy.on("mouseover","edge",function(e){openFe(e)});
-        
+//         debugger;
+        cy.on("click","edge",function(e){openFe(e)});
+//         cy.on("selected","node",function(e){chcolor_selected(e)});
+//         cy.on("unselected","node",function(e){chcolor_unselected(e)});
     };
 //--------------------------------------------------------------------
     function openFn(e){
+        InitE();
 //         debugger;
         if (nframe){
             nframe.closeFrame();
@@ -264,24 +299,29 @@ eventFunc();
         }
         var node = e.target;
         var props = node._private.scratch;
+        
+        var cw = 400;
+        var ch = node.id().length + props._author.length + props._date.length + props._url.length + props._arXivid.length + props._section.length;
+        ch = Math.round((ch+10)/10) * 10
+        var margin = 20;
+        
         var jsFrame = new org.riversun.JSFrame();
         var jsFrameApp = new jsFrame.createFrameAppearance();
-        var frame01 = jsFrame.createFrame(20,40,400,170)//(left,top,width,height)
-                .setTitle("Paper property")
+        var frame01 = jsFrame.createFrame(margin,margin+20,cw,ch-30, getOriginalStyle_01(jsFrameApp))//(left,top,width,height)
+                .setTitle("")
                 .setResizable(true)
                 .setMovable(true)
                 .setTitleBarClassName('style_default', 'style_focused');
-        var innerHtml = ["<div id='elements_property' style='padding:10px;font-size:12px;color:darkgray;'>",
+        var innerHtml = ["<div id='elements_property' style='padding:10px;font-size:12px;color:gray;'>", //' https://www.colordic.org/ '
                 "Title: <font color='black'>" + node.id() +"</font><br>",
                 "Authors: <font color='black'>" + props._author +"</font><br>",
                 "Published Date: <font color='black'>" + props._date +"</font><br>",
                 "URL: <a href='"+props._url+"' target='_blank'>" + props._url + "</a><br>",
-                "arXiv ID: <font color='black'>" + props.arXivid + "</font><br>",
+                "arXiv ID: <font color='black'>" + props._arXivid + "</font><br>",
                 "Publisher: <font color='black'>" + props._section + "</font>",
                 "</div>"].join("");
         frame01.setHTML(innerHtml);
         frame01.show();
-        jsFrameApp.onInitialize(showTitleBar=false);
         // frame01.$("#elements_property").innerHTML=<to change html>;
         // frame01.closeFrame();  ##to close frame from this code
         nframe = frame01;
@@ -289,29 +329,60 @@ eventFunc();
     };
 //--------------------------------------------------------------------
     function openFe(e){
+        InitE();
         if(eframe){
             eframe.closeFrame();
             eframe = undefined;
         };
-        var edge = e.target._private.data;
-        var w = $(window).width();
-        var h = $(window).height();
+//         var edge = e.target._private.data;
+        var edge = e.target;
+        var src = edge.source();
+        var trg = edge.target();
+        var w = $(window).width()/2;
+        var h = $(window).height()/2;
         var cw = 400;
-        var ch = 100;
+        var ch = src.id().length + trg.id().length;
+        ch = Math.ceil((ch+10)/10) * 10;
         var margin = 100;
         var jsFrame = new org.riversun.JSFrame();
         var jsFrameApp = new jsFrame.createFrameAppearance();
-        var frame01 = jsFrame.createFrame(w-cw-margin,h-ch-margin,cw,ch)//(left,top,width,height)
-            .setTitle(edge.id)
-            .setResizable(false)
-            .setMovable(false)
+        var frame01 = jsFrame.createFrame(w+cw/4+margin,h-ch+margin,cw,ch, getOriginalStyle_01(jsFrameApp))//(left,top,width,height)
+            .setTitle("")
+            .setResizable(true)
+            .setMovable(true)
             .setTitleBarClassName('style_default', 'style_focused');
-        var innerHtml = ["<div id='elements_property' style='padding:10px;font-size:12px;color:darkgray;'>",
-                "Source: <font color='black'>" + edge.source +"</font><br>",
-                "Target: <font color='black'>" + edge.target + "</font>",
+//         debugger;
+        var innerHtml = ["<div id='elements_property' style='padding:10px;font-size:12px;color:gray;'>",//' https://www.colordic.org/ '
+                "Source: <font color='black'>" + src.id() +"</font><br>",
+                "Target: <font color='black'>" + trg.id() + "</font>",
+//                 "Source: <a href='javascript:function(){cy.viewport({zoom:1,pan:"+src.position()+"})}'>"+src.id()+" </a>",
+//                 "Target: <a href='javascript:function(){cy.viewport({zoom:1,pan:"+trg.position()+"})}'>"+trg.id()+"</a>",
+//                 "<script>",
+//                 "document.getElemenById('edge-src').addEventListener('click',function(){cy.viewport({zoom:1,pan:"+src.position()+"})});",
+//                 "document.getElemenById('edge-trg').addEventListener('click',function(){cy.viewport({zoom:1,pan:"+trg.position()+"})});",
+//                 "</script>",
+//                 "Source: "+func_switch(src),
+//                 "Target: "+func_switch(tgt),
                 "</div>"].join("");
         frame01.setHTML(innerHtml);
         frame01.show();
         eframe = frame01;
+        
+        cy.fit(cy.collection([src,trg]));
+        src.data().bg = prop_vals["snfcolor"];
+        trg.data().bg = prop_vals["snfcolor"];
+        edge.css("width",prop_vals["sewidth"])
         return;
+    };
+//---------------------------------------------------------------------------
+
+    
+//----------------------------------------------------------------------------
+    function InitE(){
+        cy.nodes().forEach(function(ele,i,eles){
+           ele.data().bg = prop_vals["dnfcolor"];
+        });
+        cy.edges().forEach(function(ele,i,eles){
+            ele.css("width",prop_vals["dewidth"]);
+        });
     };

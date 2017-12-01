@@ -3,7 +3,7 @@
 <html lang="en">
 
     <head>
-        <meta charset="utf-8"/>
+        <meta http-equiv="content-type" content="text/html" charset="utf-8"/>
         <title>arXiv tree Network_test1</title>
         <script src="./lib/lib_cs/cytoscape.js"></script>
     </head>
@@ -19,12 +19,39 @@
     </style>
 
     <body>
-        <script src="./data/network_test6.js"></script>
-        <script src="./data/attribute_test6.js"></script>
+        <script src="./data/network_arxiv_cs_L3_save3_0.js"></script>
+        <script src="./data/attribute_arxiv_cs_L3_save3_0.js"></script>
+        
+        
+        
         <div id="cy"></div>
-<!--         <script src ="https://github.com/riversun/JSFrame.js/blob/master/src/main/js/jsframe.js"></script> -->
-        <script src="http://code.jquery.com/jquery-3.2.1.js"></script>
-        <script src ="./lib/JSFrame.js/src/main/js/jsframe.js"></script>
+<!--            <div id="topHeader">
+                <div id="searchHeader">
+                    <table><tr>
+                        <td>
+                            <form id="formSearch" action="/wn" class="searchbar" method="GET" role="search">
+                                <span class="twitter-typeahead" style="position: relative;display: inline-block"/>
+                                <input id="searchBox" class="typeahead form-control tt-hint" type="text" readonly autocomplete="off" spellcheck="false" tabindex="-1"  placeholder="Search" />
+                                <buttom id="searchButton" type="submit" title="submit search query">
+                                    <span aria-hidden="true" class="icon-arrow-right" />
+                                </button>
+                            </form>
+                        </td>
+                        <td id="searchNewPapers" title="Search for new papers in a specific date range">
+                        </td>
+                    </tr></table>
+                </div>
+            </div>-->
+        </div>
+<!--         <script src="http://code.jquery.com/jquery-3.2.1.js"></script> -->
+        <script
+            src="http://code.jquery.com/jquery-3.2.1.slim.min.js"
+            integrity="sha256-k2WSCIexGzOj3Euiig+TlR8gA0EmPjuc79OEeY5L45g="
+            crossorigin="anonymous"></script>
+            
+        <script src ="./lib/jsframe.1.2.0.min.js"></script>
+        <script src ="./lib/jsFrame_style01.js"></script>
+<!--         <script src =".https://riversun.github.io/jsframe/js/jsframe.1.2.0.min.js"></script> -->
         <script src="./lib/read_csv_raw_cy.js"> </script>
         <!--<script src="./lib/lib_cs/cytoscape.js"></script>-->
     </body>

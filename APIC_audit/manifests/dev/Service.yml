@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: audit-dumper
+  name: audit-dumper
+spec:
+  ports:
+  - port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: audit-dumper
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: dump-logger
+  name: dump-logger-1
+spec:
+  ports:
+  - port: 8081
+    protocol: TCP
+    targetPort: 8081
+  selector:
+    app: dump-logger
+    app-no: "1"
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: dump-logger
+  name: dump-logger-2
+spec:
+  ports:
+  - port: 8081
+    protocol: TCP
+    targetPort: 8081
+  selector:
+    app: dump-logger
+    app-no: "2"
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: dump-logger
+  name: dump-logger-3
+spec:
+  ports:
+  - port: 8081
+    protocol: TCP
+    targetPort: 8081
+  selector:
+    app: dump-logger
+    app-no: "3"
+status:
+  loadBalancer: {}

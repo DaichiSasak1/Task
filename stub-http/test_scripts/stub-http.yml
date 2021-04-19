@@ -1,0 +1,340 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: stub-http
+spec: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: stub-http
+  name: stub-http
+  namespace: stub-http
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stub-http
+  template:
+    metadata:
+      labels:
+        app: stub-http
+        version: v1
+    spec:
+      volumes:
+#      - name: cert
+#        secret:
+#          secretName: 
+      - name: code
+        configMap:
+          name: pycode
+      containers:
+      #- image: python:alpine
+      - image: python:3.9.0-alpine3.12
+        imagePullPolicy: IfNotPresent
+        name: pyhttp
+        volumeMounts:
+#        - name: cert
+#          mountPath: /cert
+        - name: code
+          mountPath: /code
+        command:
+        #- sleep
+        #- infinity
+        - python
+        - /code/http_env.py
+        #readinessProbe:
+        #  httpGet:
+        #    path: /
+        #    port: 8080
+        #    scheme: HTTP
+        #  initialDelaySeconds: 5
+        #startupProbe:
+        #  httpGet:
+        #    path: /
+        #    port: 8080
+        #    scheme: HTTP
+        #  initialDelaySeconds: 5
+          
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: stub-http
+  name: stub-http
+  namespace: stub-http
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: stub-http
+status:
+  loadBalancer: {}
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  name: pycode
+  namespace: stub-http
+data:
+  CUSTOM_HTML_FORM.html: |
+    <html lang="en" xml:lang="en">
+      <head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/><a href="https://www.ibm.com/support/knowledgecenter/SSMNED_v10/com.ibm.apic.apionprem.doc/oauth_custom_login_form.html">ref</a></head>
+      <body>
+        <form method="POST" enctype="application/x-www-form-urlencoded" action="authorize">
+          <h1>Please sign in</h1>
+          <p>Username </p>
+          <p style="text-indent: 0em;"><input type="text" name="username" required="required" /> </p>
+          <p>Password </p>
+          <p style="text-indent: 0em;"><input type="password" name="password" required="required" /> </p>
+          <EI-INJECT-HIDDEN-INPUT-FIELDS/>
+          <p style="text-indent: 2em;"> <button id="login_button" type="submit" name="login" value="true">Log in</button> </p>
+          <EI-LOGINFIRSTTIME>
+            <p>If you have forgotten your user name or password, contact your system administrator.</p>
+          </EI-LOGINFIRSTTIME>
+          <EI-LOGINFAILED>
+            <p style="color: red">At least one of your entries does not match our records. 
+              If you have forgotten your user name or password, contact your system administrator.</p>
+          </EI-LOGINFAILED>
+          <EI-INTERNAL-CUSTOM-FORM-ERROR/>
+        </form>
+      </body>
+    </html>
+
+  CUSTOM_PERMISSION_FORM.html: |
+    <html lang="en" xml:lang="en">
+      <head><title>Request for permission</title><a href="https://www.ibm.com/support/knowledgecenter/SSMNED_v10/com.ibm.apic.apionprem.doc/oauth_custom_authorization_form.html">ref</a></head>
+      <body class="customconsent">
+        <div>
+          <div>
+            <form method="post" enctype="application/x-www-form-urlencoded" action="authorize">
+              <AZ-INJECT-HIDDEN-INPUT-FIELDS/>
+              <p>Greeting..</p><DISPLAY-RESOURCE-OWNER/>
+              <p>This app </p><OAUTH-APPLICATION-NAME/><p> would like to access your data.</p>
+              <div>
+                <button class="cancel" type="submit" name="approve" value="false">No Thanks</button>
+                <button class="submit" type="submit" name="approve" value="true">Allow Access</button>
+              </div>
+            </form>
+          </div>
+          <AZ-INTERNAL-CUSTOM-FORM-ERROR/>
+        </div>
+      </body>
+    </html>
+  tmp_fix.sh: |
+    #!/bin/sh
+    cp -p /usr/local/lib/python3.9/http/server.py /tmp/server.py
+    sed '/def flush_headers/,+5s/\(self.wfile\)/#\1/' /tmp/server.py > /usr/local/lib/python3.9/http/server.py
+    python /code/http_env.py
+
+  http_env.py: |
+    from http.server import HTTPServer,BaseHTTPRequestHandler
+    import os,json,datetime,sys
+    from urllib.parse import urlparse,parse_qs
+    counter=0
+    with open("/code/CUSTOM_HTML_FORM.html") as fp:
+      CUSTOM_HTML_FORM = fp.read()
+    with open("/code/CUSTOM_PERMISSION_FORM.html") as fp:
+      CUSTOM_PERMISSION_FORM = fp.read()
+    def serve(host, port, ctx, handler):
+      server = HTTPServer((host, port), handler)
+      #server.socket = ctx.wrap_socket(server.socket)
+      print("Server starts %s:%s"%(host, port))
+      try:
+        server.serve_forever()
+      except KeyboardInterrupt:
+        pass
+      server.server_close()
+      print("Server stops %s:%s"%(host, port))
+    class HTTPHandle(BaseHTTPRequestHandler):
+      GET_RESPONSE   = 200
+      POST_RESPONSE  = 200
+      HEAD_RESPONSE  = 200
+      AUTH_RESPONSE  = 302
+      RedirectForm = '<html lang="en"><head><meta http-equiv="Refresh" content="1; URL=%s" /></head></html>'
+      #################################################################################################################################
+      RevocationForm = {"oauth-revocation":""}
+      #################################################################################################################################
+      EP_RESPONSE = {
+        "default": '{"HOSTNAME":"'+os.environ["HOSTNAME"]+'"}',
+        "/auth": '',
+        "/html_form": CUSTOM_HTML_FORM,
+        "/permission_form": CUSTOM_PERMISSION_FORM,
+        "/revocation": '{}',
+        "/url_auth": '{}',
+        "/introspect": '{}'
+      }
+      PRINT_RETURNING = True
+      def parse_body(self):
+        content_length = int(self.headers['content-length'] if 'content-length' in self.headers else 0)
+        self.dumpdata = self.rfile.read(content_length).decode("utf-8")
+        try:
+          self.kwdata = json.loads(self.dumpdata)
+        except:
+          self.kwdata = {}
+        return
+
+      def common_msg(self, res_code):
+        self.parse_body()
+        #sys.stderr.write("\n\rBEGIN %s \n\r"%b"".join(self.requestline).decode())
+        sys.stderr.write("\n\rREQUEST_BEGIN %s \n\r"%"".join(self.requestline))
+        self.log_message("\n---%s---\n"%"---\n%s\n---".join(["Header","Method", "Body"]) +"%s\n---\n",self.headers.as_string().rstrip("\n\n"), self.command, self.dumpdata)
+        self.send_response(res_code)
+        self.send_header("Content-Type","application/json;charset=UTF-8")
+        return
+      def end_headers(self):
+        sys.stderr.write("---Retuning Headers---\n\r%s\n\r"%b"".join(self._headers_buffer).decode())
+        super().end_headers()
+        sys.stderr.write("\n\rREQUEST_END %s \n\r"%"".join(self.requestline))
+        return
+      def do_GET(self):
+        global counter
+        p = urlparse(self.path)
+        res = ''
+        if p.path == "/url_auth":
+          self.common_msg(self.AUTH_RESPONSE)
+          #self.send_header("Location",parse_qs(p.query)["original-url"][0]+"&username=daichi&confirmation=ldappass")
+          #self.send_header("Location",parse_qs(p.query)["original-url"][0]+"&username=daichi&confirmation=hoge") #miss password
+          self.send_header("Location",parse_qs(p.query)["original-url"][0]+"&username=hoge&confirmation=hoge") #miss resource-owner
+          self.end_headers()
+        elif p.path == "/revocation":
+          self.common_msg(self.GET_RESPONSE)
+          #self.send_header("cache-control","max-age=64") #miss resource-owner
+          self.send_header("cache-control","min-fresh=64") #miss resource-owner
+          self.end_headers()
+          counter+=1
+          #if "access-token" in self.headers:
+          if len({"access-token", "refresh-token"}.intersection(self.headers)) >0:
+          #if len({"access-token", "refresh-token", "code"}.intersection(self.headers)) >0:
+            revoke_time = int((datetime.datetime.now() - datetime.timedelta(minutes=1)).timestamp())
+            #revoke_time = (datetime.datetime.now() - datetime.timedelta(minutes=0)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+            #################################################################################################################################
+            #null -> OK
+            self.RevocationForm["oauth-revocation"] = []
+            #################################################################################################################################
+            #Token -> OK
+            #self.RevocationForm["oauth-revocation"] += [self.headers.get("access-token")]
+            #self.RevocationForm["oauth-revocation"] += ["XXX"]
+            #################################################################################################################################
+            #Owner -> OK
+            #self.RevocationForm["oauth-revocation"] += [{"owner": self.headers.get("resource-Owner")}]
+            #self.RevocationForm["oauth-revocation"] += [{"owner": "anonymous"}]
+            #################################################################################################################################
+            #ClientID => NG
+            #self.RevocationForm["oauth-revocation"] += [{"client-id": self.headers.get("client-id")}]
+            #self.RevocationForm["oauth-revocation"] += [{"client-id": "xxx"}]
+            #################################################################################################################################
+            #Before time = OK
+            #self.RevocationForm["oauth-revocation"] += [{"before": revoke_time}]
+            #################################################################################################################################
+            #Owner + ClientID -> OK
+            #self.RevocationForm["oauth-revocation"] += [{"owner": self.headers.get("resource-Owner"), "client-id": self.headers.get("client-id")}]
+            #self.RevocationForm["oauth-revocation"] += [{"owner": self.headers.get("resource-Owner"), "client-id": "xxx"}]
+            #self.RevocationForm["oauth-revocation"] += [{"owner": "anonymous", "client-id": self.headers.get("client-id")}]
+            #self.RevocationForm["oauth-revocation"] += [{"owner": "anonymous", "client-id": self."xxx"}]
+            #################################################################################################################################
+            #Owner + BeforeTime -> NG, "before" affects every owner
+            #self.RevocationForm["oauth-revocation"] += [{"owner": self.headers.get("resource-Owner"), "before": revoke_time}]
+            #self.RevocationForm["oauth-revocation"] += [{"owner": "anonymous", "before": revoke_time}]
+            #################################################################################################################################
+            #ClientID + BeforeTime -> NG, "before" affects every ID
+            #self.RevocationForm["oauth-revocation"] += [{"client-id": self.headers.get("client-id"), "before": revoke_time}]
+            #self.RevocationForm["oauth-revocation"] += [{"client-id": "xxx", "before": revoke_time}]
+            #################################################################################################################################
+            #Owner + ClientID + BeforeTime -> NG, "before" affects every pattern
+            #self.RevocationForm["oauth-revocation"] += [{"owner": self.headers.get("resource-Owner"), "client-id": self.headers.get("client-id"), "before": revoke_time}]
+            #self.RevocationForm["oauth-revocation"] += [{"owner": "anonymous", "client-id": self.headers.get("client-id"), "before": revoke_time}]
+            #self.RevocationForm["oauth-revocation"] += [{"owner": self.headers.get("resource-Owner"), "client-id": "xxx", "before": revoke_time}]
+            #self.RevocationForm["oauth-revocation"] += [{"owner": "anonymous", "client-id": "xxx", "before": revoke_time}]
+
+            #################################################################################################################################
+            #res = "invalid-text"
+            res = json.dumps(self.RevocationForm)
+            #res = json.dumps(self.RevocationForm, indent=2, separators=(',', ' : '))
+            #################################################################################################################################
+        elif p.path == "/auth":
+          self.common_msg(self.GET_RESPONSE)
+          #self.send_header("API-Authenticated-Credential", "cn=spoon,o=eatery")
+          self.send_header("x-API-OAUTH-METADATA-FOR-ACCESSTOKEN", "metadataaccesstoken")
+          self.send_header("x-API-OAUTH-METADATA-FOR-PAYLOAD", "metadatapayload")
+          #self.send_header("x-selected-scope", "custom-scope-in-header")
+          self.end_headers()
+        elif p.path == "/meta":
+          self.common_msg(self.GET_RESPONSE)
+          #self.send_header("API-Authenticated-Credential", "cn=spoon,o=eatery")
+          self.send_header("x-API-OAUTH-METADATA-FOR-ACCESSTOKEN", "m-metadataaccesstoken")
+          self.send_header("x-API-OAUTH-METADATA-FOR-PAYLOAD", "m-metadatapayload")
+          #self.send_header("x-selected-scope", "custom-scope-in-header")
+          self.end_headers()
+        elif p.path == "/introspect":
+          self.common_msg(self.GET_RESPONSE)
+          self.end_headers()
+          res = {"active": True}
+          res = json.dumps(res)
+        else:
+          self.common_msg(self.GET_RESPONSE)
+          self.end_headers()
+          self.PRINT_RETURNING = False
+        res = res if res else self.EP_RESPONSE[p.path if p.path in self.EP_RESPONSE.keys() else "default"]
+        if self.PRINT_RETURNING:
+          sys.stderr.write("---Retuning Message---\n\r%s\n\rcounter %d\n\r"%(res,counter))
+        self.wfile.write(bytes(res,"utf-8"))
+        return
+      def do_HEAD(self):
+        p = urlparse(self.path)
+        self.common_msg(self.HEAD_RESPONSE)
+        self.send_header("Content_Type","text/plain; charset=utf-8")
+        self.send_header("Connection","close")
+        self.end_headers()
+        return
+      def do_POST(self):
+        p = urlparse(self.path)
+        self.common_msg(self.POST_RESPONSE)
+        self.end_headers()
+        if p.path == "/introspect":
+          res = {"active": True}
+          res = json.dumps(res)
+          sys.stderr.write("---Retuning Message---\n\r%s\n\rcounter %d\n\r"%(res,counter))
+          self.wfile.write(bytes(res,"utf-8"))
+
+        return
+      def do_PUT(self):
+        self.common_msg(self.POST_RESPONSE)
+        self.__dict__.update(self.kwdata)
+        return
+      def do_OPTION(self):
+        self.common_msg(self.POST_RESPONSE)
+        self.end_headers()
+        return
+      def do_PROXY(self):
+        self.common_msg(self.POST_RESPONSE)
+        self.end_headers()
+        return
+    if __name__ == "__main__":
+      host = "0.0.0.0"
+      port = 8080
+      ctx  = ""
+      ###TLS
+      #import ssl
+      #ctx  = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+      #ctx.load_cert_chain('/cert/tls.crt', keyfile='/cert/tls.key')
+      ###specify TLS protocols
+      #ctx  = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+      #ctx.ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+      #ctx.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1 | ssl.OP_NO_TLSv1_3
+      #####
+      handler = HTTPHandle
+      serve(host, port, ctx, handler)
+

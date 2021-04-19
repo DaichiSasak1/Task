@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: audit-dumper
+  name: audit-dumper
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: audit-dumper
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: audit-dumper
+    spec:
+      containers:
+      - image: <...>/dumper:1.0
+        imagePullPolicy: Always
+        name: audit-dumper
+        resources: {}
+        command:
+        - "./dumper"
+        - "-p"
+        - "8080"
+status: {}
+
+---
+apiVersion: v1
+kind: List
+items:
+
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    creationTimestamp: null
+    labels:
+      app: dump-logger
+    name: dump-logger-1
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: dump-logger
+        app-no: "1"
+    strategy: {}
+    template:
+      metadata:
+        labels:
+          app: dump-logger
+          app-no: "1"
+      spec: &dump-container-spec
+        affinity:
+          podAntiAffinity:
+             requiredDuringSchedulingIgnoredDuringExecution:
+               - topologyKey: topology.kubernetes.io/zone
+                 labelSelector:
+                   matchLabels:
+                     app: dump-logger
+        containers:
+        - image: <...>/dumper:1.0
+          imagePullPolicy: Always
+          name: dump-logger
+          resources: {}
+          command:
+          - "./dumper"
+          - "--logout"
+          - "-p"
+          - "8081"
+          - "-e"
+          - "http://apic-audit-dumper.default.svc.cluster.local:8080"
+  status: {}
+
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    labels:
+      app: dump-logger
+    name: dump-logger-2
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: dump-logger
+        app-no: "2"
+    strategy: {}
+    template:
+      metadata:
+        labels:
+          app: dump-logger
+          app-no: "2"
+      spec: *dump-container-spec
+
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    labels:
+      app: dump-logger
+    name: dump-logger-3
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: dump-logger
+        app-no: "3"
+    strategy: {}
+    template:
+      metadata:
+        labels:
+          app: dump-logger
+          app-no: "3"
+      spec: *dump-container-spec
